@@ -3,6 +3,9 @@
     <div class="app-header row items-center q-pa-sm">
       <div class="text-h6">Chat App</div>
       <q-space />
+      <router-link to="/friends">
+        <q-btn>Manage friends</q-btn>
+      </router-link>
       <q-btn @click="logout">Logout</q-btn>
     </div>
 

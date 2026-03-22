@@ -2,7 +2,7 @@
   <div class="row no-wrap full-height">
     <!-- Left: User contacts -->
     <div class="col-3 bg-grey-2">
-      <UserContactList @select-user="selectUser" />
+      <UserFriendsList @select-user="selectUser" />
     </div>
 
     <!-- Right: Chats -->
@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import UserContactList from "src/components/UserContactList.vue";
+import UserFriendsList from "src/components/UserFriendsList.vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();

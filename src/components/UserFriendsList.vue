@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { getUserContactsList } from "src/services/user";
+import { getUserFriends } from "src/services/user";
 import { ref, onMounted } from "vue";
 
 const usersContacts = ref([]);
@@ -39,7 +39,7 @@ const getUserContacts = async () => {
   let currentUser = localStorage.getItem("user");
   if (currentUser) {
     currentUser = JSON.parse(currentUser);
-    const res = await getUserContactsList(currentUser._id);
+    const res = await getUserFriends(currentUser._id);
     usersContacts.value = res.friends;
   }
 };
