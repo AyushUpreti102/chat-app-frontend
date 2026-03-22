@@ -1,0 +1,32 @@
+<template>
+  <div class="app column">
+    <div class="app-header row items-center q-pa-sm">
+      <div class="text-h6">Chat App</div>
+      <q-space />
+      <q-btn @click="logout">Logout</q-btn>
+    </div>
+
+    <!-- This fills the remaining space under the header -->
+    <div class="app-body col">
+      <router-view />
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { logout } from "src/services/auth";
+</script>
+
+<style>
+.app {
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.app-body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+} /* critical */
+</style>
