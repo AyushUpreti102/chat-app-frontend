@@ -1,12 +1,7 @@
 <template>
   <div class="user-list full-height">
     <q-list bordered separator>
-      <q-item
-        v-for="user in usersContacts"
-        :key="user._id"
-        clickable
-        @click="$emit('select-user', user)"
-      >
+      <q-item v-for="user in userFriends" :key="user._id" clickable @click="$emit('select-user', user)">
         <q-item-section>
           <q-item-label>{{ user.username }}</q-item-label>
           <q-item-label caption>
@@ -24,10 +19,11 @@
 </template>
 
 <script setup>
-import { getUserFriends } from "src/services/user";
-import { ref, onMounted } from "vue";
+import { useUserStore } from "src/stores/userStore";
+import { onMounted, computed } from "vue";
 
-const usersContacts = ref([]);
+const userStore = useUserStore()
+const userFriends = computed(() => userStore.friendsList)
 
 const formatTime = (time) => {
   if (!time) return "";
@@ -35,17 +31,8 @@ const formatTime = (time) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
-const getUserContacts = async () => {
-  let currentUser = localStorage.getItem("user");
-  if (currentUser) {
-    currentUser = JSON.parse(currentUser);
-    const res = await getUserFriends(currentUser._id);
-    usersContacts.value = res.friends;
-  }
-};
-
 onMounted(() => {
-  getUserContacts();
+  userStore.getUserFriendsList();
 });
 </script>
 

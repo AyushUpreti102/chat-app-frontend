@@ -16,12 +16,7 @@
               </q-item-section>
 
               <q-item-section side>
-                <q-btn
-                  color="negative"
-                  label="Remove"
-                  size="sm"
-                  @click="handleRemove(friend._id)"
-                />
+                <q-btn color="negative" label="Remove" size="sm" @click="handleRemove(friend._id)" />
               </q-item-section>
             </q-item>
           </q-list>
@@ -43,12 +38,7 @@
               </q-item-section>
 
               <q-item-section side>
-                <q-btn
-                  color="primary"
-                  label="Add"
-                  size="sm"
-                  @click="handleAdd(user._id)"
-                />
+                <q-btn color="primary" label="Add" size="sm" @click="handleAdd(user._id)" />
               </q-item-section>
             </q-item>
           </q-list>
@@ -70,23 +60,21 @@ import {
 const friends = ref([]);
 const suggestions = ref([]);
 
-const currentUser = JSON.parse(localStorage.getItem("user"));
-
 const loadData = async () => {
-  const friendsRes = await getUserFriends(currentUser._id);
-  const suggestionsRes = await getSuggestions(currentUser._id);
+  const friendsRes = await getUserFriends();
+  const suggestionsRes = await getSuggestions();
 
   friends.value = friendsRes.friends;
   suggestions.value = suggestionsRes.suggestions;
 };
 
 const handleAdd = async (friendId) => {
-  await addFriend(currentUser._id, friendId);
+  await addFriend(friendId);
   await loadData();
 };
 
 const handleRemove = async (friendId) => {
-  await removeFriend(currentUser._id, friendId);
+  await removeFriend(friendId);
   await loadData();
 };
 

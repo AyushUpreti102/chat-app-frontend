@@ -17,9 +17,43 @@
 
 <script setup>
 import UserFriendsList from "src/components/UserFriendsList.vue";
-import { useRouter } from "vue-router";
+import { useUserStore } from "src/stores/userStore";
+import { useWebSdkStore } from "src/stores/webSdkStore";
+import { computed, nextTick, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 const router = useRouter();
+const route = useRoute()
+const webSdkStore = useWebSdkStore()
+const userStore = useUserStore()
+
+const currentChatUserId = computed(() => route.params.userId);
+
+const scrollChatContainerToBottom = async () => {
+  await nextTick()
+  const bottomEl = document.getElementById("chatContainerBottom")
+  if (bottomEl) bottomEl.scrollIntoView({ behavior: 'smooth' })
+}
+
+watch(() => webSdkStore.eventDetails, (data) => {
+  if (data) {
+    userStore.getUserFriendsList()
+    if (
+      data.from === currentChatUserId.value ||
+      data.from === userStore.getCurrentLoggedUserId
+    ) {
+      userStore.addMessageToCurrentChat({
+        isSender: data.from === userStore.getCurrentLoggedUserId,
+        text: data.text,
+      })
+      scrollChatContainerToBottom()
+    }
+  }
+})
+
+onMounted(() => {
+  webSdkStore.initiateWebSocket(userStore.getCurrentLoggedUserId)
+})
 
 function selectUser(user) {
   router.push({ name: "userChat", params: { userId: user._id } });

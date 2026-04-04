@@ -3,18 +3,12 @@
     <div class="chat-container column full-height">
       <!-- Chat messages -->
       <div class="chat-messages col scroll">
-        <div
-          v-for="(msg, i) in messages"
-          :key="i"
-          :class="msg.isSender ? 'text-right' : 'text-left'"
-        >
-          <q-chip
-            :color="msg.isSender ? 'green-3' : 'blue-3'"
-            text-color="black"
-          >
+        <div v-for="(msg, i) in messages" :key="i" :class="msg.isSender ? 'text-right' : 'text-left'">
+          <q-chip :color="msg.isSender ? 'green-3' : 'blue-3'" text-color="black">
             {{ msg.text }}
           </q-chip>
         </div>
+        <div id="chatContainerBottom" ref="bottomRef" />
       </div>
 
       <!-- Separator -->
@@ -22,13 +16,7 @@
 
       <!-- Input -->
       <div class="chat-input row items-center q-pa-sm">
-        <q-input
-          filled
-          v-model="message"
-          label="Type a message..."
-          @keyup.enter="sendMessage"
-          class="col"
-        />
+        <q-input filled v-model="message" label="Type a message..." @keyup.enter="sendMessage" class="col" />
         <q-btn flat label="Send" color="primary" @click="sendMessage" />
       </div>
     </div>
@@ -36,87 +24,70 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { createWebSocket } from "src/utils/webSocket";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { getChatHistory } from "src/services/chat";
+import { useUserStore } from "src/stores/userStore";
+import { useWebSdkStore } from "src/stores/webSdkStore";
 
 const route = useRoute();
+const userStore = useUserStore()
+const webSdkStore = useWebSdkStore()
 
+const bottomRef = ref(null)
 const message = ref("");
-const messages = ref([]);
 
-const ws = ref(null);
 const currentChatUserId = computed(() => route.params.userId);
+const messages = computed(() => userStore.currentChatMessages)
 
-const localStorageData = localStorage.getItem("user");
-const currentLoggedUser = localStorageData
-  ? JSON.parse(localStorageData)
-  : null;
-
-const initiateWebSocket = () => {
-  if (currentLoggedUser) {
-    ws.value = createWebSocket(currentLoggedUser._id);
-
-    ws.value.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      messages.value.push({
-        isSender: data.from === currentLoggedUser._id,
-        text: data.text,
-      });
-    };
-
-    ws.value.onopen = () => console.log("✅ Connected to WebSocket");
-    ws.value.onclose = () => console.log("❌ Disconnected");
-  }
-};
+const setCurrentChatMessages = (val) => userStore.setCurrentChatMessages(val)
 
 // Load history when switching user
 const loadChatHistory = async () => {
-  if (currentLoggedUser && currentChatUserId.value) {
-    messages.value = []; // clear before reload
+  if (userStore.getCurrentLoggedUserId && currentChatUserId.value) {
+    setCurrentChatMessages([]); // clear before reload
     const history = await getChatHistory(
-      currentLoggedUser._id,
-      currentChatUserId.value
+      currentChatUserId.value,
     );
-    messages.value = history.map((msg) => ({
-      isSender: msg.from === currentLoggedUser._id,
+    const oldMessages = history.map((msg) => ({
+      isSender: msg.from === userStore.getCurrentLoggedUserId,
       text: msg.text,
     }));
+    setCurrentChatMessages(oldMessages)
   }
 };
 
 function sendMessage() {
-  if (message.value.trim() && ws.value?.readyState === WebSocket.OPEN) {
+  if (message.value.trim()) {
     const payload = {
       to: currentChatUserId.value,
       text: message.value,
     };
-
-    // show locally first
-    messages.value.push({ isSender: true, text: message.value });
-
-    ws.value.send(JSON.stringify(payload));
+    // Add locally
+    userStore.addMessageToCurrentChat({ isSender: true, text: message.value })
+    webSdkStore.sendMessage(payload)
     message.value = "";
+    scrollToBottom()
   }
 }
 
+const scrollToBottom = async () => {
+  await nextTick()
+  bottomRef.value?.scrollIntoView({ behavior: 'smooth' })
+}
+
 onMounted(async () => {
-  initiateWebSocket();
   await loadChatHistory();
+  scrollToBottom()
 });
 
 watch(
   () => route.params.userId,
   async () => {
-    initiateWebSocket();
     await loadChatHistory();
-  }
+    scrollToBottom()
+  },
 );
-
-onBeforeUnmount(() => {
-  if (ws.value) ws.value.close();
-});
 </script>
 
 <style scoped>

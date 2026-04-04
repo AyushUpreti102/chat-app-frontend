@@ -5,6 +5,7 @@ import {
   createWebHistory,
 } from "vue-router";
 import routes from "./routes";
+import { checkAuth } from "src/services/auth";
 
 /*
  * If not building with SSR mode, you can
@@ -30,19 +31,20 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
-  Router.beforeEach((to, from, next) => {
-    const user = localStorage.getItem("user");
+  Router.beforeEach(async (to, from, next) => {
+    const isAuth = await checkAuth();
 
-    // If route requires auth and no user → redirect to login
-    if (to.meta.requiresAuth && !user) {
-      next({ name: "auth" });
+    // 🔐 Protected route
+    if (to.meta.requiresAuth && !isAuth) {
+      return next({ name: "auth" });
     }
-    // If logged in and trying to access login/signup → redirect to home/chat
-    else if ((to.name === "login" || to.name === "signup") && user) {
-      next({ name: "chat" });
-    } else {
-      next();
+
+    // 🚫 Prevent logged-in user from going to login/signup
+    if ((to.name === "auth" || to.name === "signup") && isAuth) {
+      return next({ name: "chat" });
     }
+
+    next();
   });
 
   return Router;
