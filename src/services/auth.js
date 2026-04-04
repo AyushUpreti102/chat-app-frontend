@@ -51,5 +51,5 @@ export const logout = async () => {
     console.error("Logout error", e);
   }
 
-  window.location.href = "/login";
+  window.location.href = "/auth";
 };
