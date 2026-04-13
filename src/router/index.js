@@ -36,7 +36,7 @@ export default defineRouter(function (/* { store, ssrContext } */) {
 
     // 🔐 Protected route
     if (to.meta.requiresAuth && !isAuth) {
-      return next({ name: "auth" });
+      return next({ name: "login" });
     }
 
     // 🚫 Prevent logged-in user from going to login/signup

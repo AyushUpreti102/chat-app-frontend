@@ -24,8 +24,13 @@ const routes = [
         meta: { requiresAuth: true },
       },
       {
-        name: "auth",
-        path: "auth",
+        name: "login",
+        path: "/login",
+        component: () => import("pages/AuthenticationPage.vue"),
+      },
+      {
+        name: "signup",
+        path: "/signup",
         component: () => import("pages/AuthenticationPage.vue"),
       },
     ],

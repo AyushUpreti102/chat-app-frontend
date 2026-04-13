@@ -37,7 +37,7 @@ export const checkAuth = async () => {
   try {
     const { data } = await axios.get("/auth/me");
     userStore.setIsAuthenticated(data.isAuth);
-    userStore.setUserId(data.userId);
+    userStore.setUser(data.user);
     return data.isAuth;
   } catch {
     return false;
@@ -51,5 +51,5 @@ export const logout = async () => {
     console.error("Logout error", e);
   }
 
-  window.location.href = "/auth";
+  window.location.href = "/login";
 };
