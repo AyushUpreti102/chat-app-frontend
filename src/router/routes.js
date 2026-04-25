@@ -18,12 +18,6 @@ const routes = [
         ],
       },
       {
-        name: "friends",
-        path: "friends",
-        component: () => import("pages/FriendsPage.vue"),
-        meta: { requiresAuth: true },
-      },
-      {
         name: "login",
         path: "/login",
         component: () => import("pages/AuthenticationPage.vue"),
