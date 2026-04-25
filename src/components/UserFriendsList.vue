@@ -1,80 +1,66 @@
 <template>
   <div class="sidebar-list">
-
-    <q-item v-for="user in userFriends" :key="user._id" clickable @click="selectUser(user)" class="chat-item"
-      :class="{ 'active-chat': $route.params.userId === user._id }">
-
-      <!-- Avatar -->
+    <q-item
+      v-for="{ user, ...userObj } in userStore.friendsList"
+      :key="user._id"
+      clickable
+      @click="openChat(user._id)"
+      class="chat-item"
+      :class="{ active: route.params.userId === user._id }"
+    >
       <q-item-section avatar>
         <q-avatar class="avatar">
           {{ user.username.charAt(0).toUpperCase() }}
         </q-avatar>
       </q-item-section>
 
-      <!-- Name + Message -->
       <q-item-section class="content">
-
         <q-item-label class="username ellipsis">
           {{ user.username }}
         </q-item-label>
 
-        <q-item-label caption class="message ellipsis" :class="{ unread: user.unreadCount > 0 }">
-          {{ user.lastMessage || "No messages yet" }}
+        <q-item-label caption class="message ellipsis">
+          {{ userObj.lastMessage || "No messages yet" }}
         </q-item-label>
-
       </q-item-section>
 
-      <!-- Time + Badge -->
       <q-item-section side top class="meta">
-
         <q-item-label caption class="time">
-          {{ formatTime(user.lastMessageTime) }}
+          {{ formatTime(userObj.lastMessageTime) }}
         </q-item-label>
 
-        <q-badge v-if="user.unreadCount > 0" class="unread-badge">
-          {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
+        <q-badge v-if="userObj.unreadCount > 0" class="unread-badge">
+          {{ userObj.unreadCount }}
         </q-badge>
-
       </q-item-section>
-
     </q-item>
-
   </div>
 </template>
 
 <script setup>
+import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "src/stores/userStore";
-import { onMounted, computed } from "vue";
-import { useRoute } from "vue-router";
 
-const emits = defineEmits(["select-user"])
+const route = useRoute();
+const router = useRouter();
+const userStore = useUserStore();
 
-const route = useRoute()
-const userStore = useUserStore()
-const userFriends = computed(() => userStore.friendsList)
+const openChat = async (userId) => {
+  await userStore.openConversation(userId);
 
-const formatTime = (time) => {
-  if (!time) return "";
-  const date = new Date(time);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  router.push({
+    name: "userChat",
+    params: { userId },
+  });
 };
 
-const selectUser = (user) => {
-  emits("select-user", user)
-}
-
-const setCurrentChatUser = () => {
-  const userId = route.params.userId
-  if (userId) {
-    const currentChatUser = userStore.friendsList.find(friend => friend?._id === userId)
-    selectUser(currentChatUser)
-  }
-}
-
-onMounted(async () => {
-  await userStore.getUserFriendsList();
-  setCurrentChatUser()
-});
+const formatTime = (val) => {
+  if (!val) return "";
+  return new Date(val).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 </script>
 
 <style scoped>
@@ -83,18 +69,17 @@ onMounted(async () => {
 }
 
 .chat-item {
-  border-radius: 14px;
-  padding: 10px 8px;
+  border-radius: 12px;
+  padding: 10px;
   margin-bottom: 6px;
-
-  transition: all 0.2s ease;
+  transition: 0.2s;
 }
 
 .chat-item:hover {
   background: #f4f5fb;
 }
 
-.active-chat {
+.chat-item.active {
   background: #eef0ff;
 }
 
@@ -114,17 +99,11 @@ onMounted(async () => {
 }
 
 .message {
-  color: #6b7280;
   font-size: 12px;
-}
-
-.message.unread {
-  color: #111827;
-  font-weight: 600;
+  color: #6b7280;
 }
 
 .meta {
-  flex: 0 0 auto;
   align-items: flex-end;
 }
 
@@ -134,10 +113,10 @@ onMounted(async () => {
 }
 
 .unread-badge {
+  margin-top: 4px;
   background: #6c63ff;
   color: white;
   font-size: 10px;
-  margin-top: 4px;
 }
 
 .ellipsis {

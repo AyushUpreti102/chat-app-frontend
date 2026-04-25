@@ -101,19 +101,19 @@ const redirectToLoginOrSignup = () => {
 };
 
 async function handleSubmit() {
+  error.value = "";
+
   try {
     if (isLogin.value) {
       const emailOrUsername = username.value || email.value;
       await login(emailOrUsername, password.value);
       router.push({ name: "chat" });
     } else {
-      const res = await register(username.value, email.value, password.value);
-      if (!res.error) {
-        router.push({ name: "login" });
-      }
+      await register(username.value, email.value, password.value);
+      router.push({ name: "login" });
     }
   } catch (err) {
-    error.value = err.message || "Something went wrong!";
+    error.value = err?.message || "Something went wrong!";
   }
 }
 </script>

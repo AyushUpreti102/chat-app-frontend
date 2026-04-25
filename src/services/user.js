@@ -1,21 +1,9 @@
 import axios from "../api";
 
-export async function getUserFriends() {
-  const res = await axios.get(`/user/friends`);
-  return res.data;
-}
+/* ================= SUGGESTIONS ================= */
 
-export async function getSuggestions() {
-  const res = await axios.get(`/user/suggestions`);
-  return res.data;
-}
-
-export async function addFriend(friendId) {
-  const res = await axios.post(`/user/add-friend/${friendId}`);
-  return res.data;
-}
-
-export async function removeFriend(friendId) {
-  const res = await axios.delete(`/user/remove-friend/${friendId}`);
+// Get chat list (left panel)
+export async function getChatList() {
+  const res = await axios.get("/user/getChatList");
   return res.data;
 }

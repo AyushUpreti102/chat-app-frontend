@@ -1,52 +1,85 @@
-import { defineStore, acceptHMRUpdate } from "pinia";
+import { defineStore } from "pinia";
+import { ref } from "vue";
 import { createWebSocket } from "src/utils/webSocket";
+import { useUserStore } from "./userStore";
 
-export const useWebSdkStore = defineStore("webSdkStore", {
-  state: () => ({
-    ws: null,
-    eventDetails: null,
-    isWebSocketConnectionOpen: false,
-  }),
-  getters: {
-    /** Add getters if needed */
-  },
-  actions: {
-    initiateWebSocket(currentLoggedUserId) {
-      this.ws = createWebSocket(currentLoggedUserId);
+export const useWebSdkStore = defineStore("webSdkStore", () => {
+  const ws = ref(null);
+  const isConnected = ref(false);
+  const typingUser = ref(null);
 
-      this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        this.eventDetails = data;
-      };
+  let typingTimer = null;
 
-      this.ws.onerror = (error) => {
-        console.log(error);
-      };
+  const connect = (userId) => {
+    if (ws.value?.readyState === 1) return;
 
-      this.ws.onopen = () => {
-        console.log("✅ Connected to WebSocket");
-        this.onWebSocketConnectionOpen();
-      };
+    const userStore = useUserStore();
 
-      this.ws.onclose = () => {
-        console.log("❌ Disconnected");
-        this.onWebSocketConnectionClose();
-      };
-    },
-    onWebSocketConnectionOpen() {
-      this.isWebSocketConnectionOpen = true;
-    },
-    onWebSocketConnectionClose() {
-      this.isWebSocketConnectionOpen = false;
-    },
-    sendMessage(payload) {
-      if (this.isWebSocketConnectionOpen) {
-        this.ws.send(JSON.stringify(payload));
+    ws.value = createWebSocket(userId);
+
+    ws.value.onopen = () => {
+      isConnected.value = true;
+    };
+
+    ws.value.onmessage = ({ data }) => {
+      const event = JSON.parse(data);
+
+      switch (event.type) {
+        case "message":
+          if (String(event.data.sender) === String(userStore.currentUserId)) {
+            return;
+          }
+          userStore.incomingMessage(event.data);
+          break;
+
+        case "online":
+          userStore.updateUserOnlineStatus(
+            event.data.userId,
+            event.data.isOnline,
+          );
+          break;
+
+        case "typing":
+          typingUser.value = event.data.from;
+
+          clearTimeout(typingTimer);
+
+          typingTimer = setTimeout(() => {
+            typingUser.value = null;
+          }, 1500);
+          break;
       }
-    },
-  },
-});
+    };
 
-if (import.meta.hot) {
-  import.meta.hot.accept(acceptHMRUpdate(useWebSdkStore, import.meta.hot));
-}
+    ws.value.onclose = () => {
+      isConnected.value = false;
+    };
+  };
+
+  const send = (payload) => {
+    if (ws.value?.readyState === 1) {
+      ws.value.send(JSON.stringify(payload));
+    }
+  };
+
+  const sendTyping = (to) => {
+    send({
+      type: "typing",
+      data: { to },
+    });
+  };
+
+  const close = () => {
+    ws.value?.close();
+    ws.value = null;
+  };
+
+  return {
+    isConnected,
+    typingUser,
+    connect,
+    send,
+    sendTyping,
+    close,
+  };
+});

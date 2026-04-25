@@ -3,19 +3,21 @@ import { useUserStore } from "src/stores/userStore";
 
 export const login = async (usernameOREmail, password) => {
   try {
-    return await axios.post("/auth/login", {
+    const response = await axios.post("/auth/login", {
       usernameOREmail,
       password,
     });
+
+    return response.data;
   } catch (error) {
     console.log("Error while login", error.message);
-    return { error };
+    throw error?.response?.data || error;
   }
 };
 
 export const register = async (username, email, password) => {
   try {
-    return await axios.post(
+    const response = await axios.post(
       "/auth/signup",
       {
         username,
@@ -26,9 +28,11 @@ export const register = async (username, email, password) => {
         withCredentials: false,
       },
     );
+
+    return response.data;
   } catch (error) {
     console.log("Error while login", error.message);
-    return { error };
+    throw error?.response?.data || error;
   }
 };
 
