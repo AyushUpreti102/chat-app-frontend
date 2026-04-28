@@ -76,7 +76,8 @@ export const useUserStore = defineStore("userStore", () => {
       currentChatMessages.value = history.map((msg) => ({
         _id: msg._id,
         isSender: String(msg.sender) === String(currentUserId.value),
-        text: msg.text,
+        text: msg.text || "",
+        files: msg.files || [],
         createdAt: msg.createdAt,
       }));
     } catch (err) {
@@ -94,6 +95,18 @@ export const useUserStore = defineStore("userStore", () => {
     currentChatMessages.value = [];
   };
 
+  function getPreview(text, files) {
+    if (text) return text;
+
+    if (files?.length) {
+      return files.length === 1
+        ? "📎 Attachment"
+        : `📎 ${files.length} attachments`;
+    }
+
+    return "";
+  }
+
   /* ================= MESSAGE EVENTS ================= */
 
   const incomingMessage = (msg) => {
@@ -106,19 +119,19 @@ export const useUserStore = defineStore("userStore", () => {
       currentChatMessages.value.push({
         _id: msg._id,
         isSender: false,
-        text: msg.text,
+        text: msg.text || "",
+        files: msg.files || [],
         createdAt: msg.createdAt,
       });
 
       resetUnread(senderId);
 
-      // Keep server unread counter in sync for active chat sessions.
       markAsRead(currentChatUser.value.conversationId).catch(console.error);
     }
 
     updateSidebar({
       userId: senderId,
-      text: msg.text,
+      text: getPreview(msg.text, msg.files),
       isSender: false,
       incrementUnread: !isCurrent,
       createdAt: msg.createdAt,
@@ -129,13 +142,14 @@ export const useUserStore = defineStore("userStore", () => {
     currentChatMessages.value.push({
       _id: msg._id || Date.now(),
       isSender: true,
-      text: msg.text,
+      text: msg.text || "",
+      files: msg.files || [],
       createdAt: msg.createdAt,
     });
 
     updateSidebar({
       userId: msg.receiver,
-      text: msg.text,
+      text: getPreview(msg.text, msg.files),
       isSender: true,
       createdAt: msg.createdAt,
     });
