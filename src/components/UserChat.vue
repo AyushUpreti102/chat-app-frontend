@@ -22,6 +22,19 @@
           </div>
         </div>
       </div>
+
+      <!-- 🔥 RIGHT SIDE ACTIONS -->
+      <div class="header-actions">
+        <q-btn flat round dense icon="call" @click="startCallHandler(false)" />
+
+        <q-btn
+          flat
+          round
+          dense
+          icon="videocam"
+          @click="startCallHandler(true)"
+        />
+      </div>
     </div>
 
     <!-- Messages -->
@@ -152,12 +165,20 @@
 </template>
 
 <script setup>
-import { computed, ref, nextTick, watch, onBeforeUnmount } from "vue";
+import {
+  computed,
+  ref,
+  nextTick,
+  watch,
+  onBeforeUnmount,
+  onMounted,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "src/stores/userStore";
 import { useWebSdkStore } from "src/stores/webSdkStore";
 import { uploadMultipleFiles } from "src/services/chat";
 import MessageBubble from "./MessageBubble.vue";
+import { registerSignaling, startCall } from "src/utils/webRtc";
 
 let scrollTimeout;
 
@@ -192,6 +213,17 @@ watch(
 );
 
 watch([messages, isTyping], scrollBottom, { deep: true, immediate: true });
+
+async function startCallHandler(isVideo) {
+  await startCall({
+    isVideo,
+    onRemoteStream: (stream) => {
+      const audio = document.getElementById("remoteAudio");
+      audio.srcObject = stream;
+      audio.play().catch(() => {});
+    },
+  });
+}
 
 function isImage(fileName = "") {
   return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileName);
@@ -336,6 +368,20 @@ function back() {
   router.push({ name: "chat" });
 }
 
+onMounted(() => {
+  registerSignaling({
+    sendIceCandidate: (candidate) => {
+      webSdkStore.sendIceCandidate(selectedUser.value.user._id, candidate);
+    },
+    sendOffer: (offer, isVideo) => {
+      webSdkStore.sendCallOffer(selectedUser.value.user._id, offer, isVideo);
+    },
+    sendAnswer: (answer) => {
+      webSdkStore.sendCallAnswer(selectedUser.value.user._id, answer);
+    },
+  });
+});
+
 onBeforeUnmount(() => {
   selectedFiles.value.forEach((file) => {
     if (file.preview) {
@@ -370,6 +416,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   min-width: 0; /* 🔥 for ellipsis */
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .header-avatar {

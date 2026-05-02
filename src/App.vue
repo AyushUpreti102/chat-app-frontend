@@ -1,5 +1,11 @@
 <template>
-  <router-view />
+  <div>
+    <router-view />
+    <incoming-call />
+    <audio id="remoteAudio" autoplay playsinline></audio>
+  </div>
 </template>
 
-<script setup></script>
+<script setup>
+import IncomingCall from "./components/IncomingCall.vue";
+</script>

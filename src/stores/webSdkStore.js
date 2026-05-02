@@ -2,11 +2,13 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { createWebSocket } from "src/utils/webSocket";
 import { useUserStore } from "./userStore";
+import { handleAnswer, handleIceCandidate } from "src/utils/webRtc";
 
 export const useWebSdkStore = defineStore("webSdkStore", () => {
   const ws = ref(null);
   const isConnected = ref(false);
   const typingUser = ref(null);
+  const incomingCall = ref(null);
 
   let typingTimer = null;
 
@@ -52,6 +54,39 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
           typingTimer = setTimeout(() => {
             typingUser.value = null;
           }, 1200);
+          break;
+
+        case "call-offer": {
+          const { from, offer, isVideo } = event.data || {};
+          console.log(event.data, "offer");
+          if (!from || !offer) return;
+
+          // 🔥 reject if already busy
+          if (incomingCall.value) {
+            send({
+              type: "call-end",
+              data: { to: from },
+            });
+            return;
+          }
+          incomingCall.value = { from, offer, isVideo };
+          break;
+        }
+
+        case "call-answer":
+          handleAnswer(event.data.answer);
+          break;
+
+        case "ice-candidate":
+          handleIceCandidate(event.data.candidate);
+          break;
+
+        case "call-end":
+          incomingCall.value = null;
+
+          window.dispatchEvent(
+            new CustomEvent("call-end", { detail: event.data }),
+          );
           break;
       }
     };
@@ -102,6 +137,34 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
     });
   };
 
+  const sendCallOffer = (to, offer, isVideo) => {
+    send({
+      type: "call-offer",
+      data: { to, offer, isVideo },
+    });
+  };
+
+  const sendCallAnswer = (to, answer) => {
+    send({
+      type: "call-answer",
+      data: { to, answer },
+    });
+  };
+
+  const sendIceCandidate = (to, candidate) => {
+    send({
+      type: "ice-candidate",
+      data: { to, candidate },
+    });
+  };
+
+  const endCall = (to) => {
+    send({
+      type: "call-end",
+      data: { to },
+    });
+  };
+
   const close = () => {
     ws.value?.close();
     ws.value = null;
@@ -110,9 +173,14 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
   return {
     isConnected,
     typingUser,
+    incomingCall,
     connect,
     send,
     sendTyping,
+    sendCallOffer,
+    sendCallAnswer,
+    sendIceCandidate,
+    endCall,
     close,
   };
 });
