@@ -201,6 +201,7 @@ export const useUserStore = defineStore("userStore", () => {
 
     setUser,
     setIsAuthenticated,
+    getFriend,
     fetchChatList,
     setCurrentChatUser,
     openConversation,

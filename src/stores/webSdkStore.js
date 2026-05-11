@@ -2,20 +2,30 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { createWebSocket } from "src/utils/webSocket";
 import { useUserStore } from "./userStore";
-import { handleAnswer, handleIceCandidate } from "src/utils/webRtc";
+import {
+  handleAnswer,
+  handleIceCandidate,
+  handleRenegotiation,
+  endCall as endCallService,
+} from "src/utils/webRtc";
 
 export const useWebSdkStore = defineStore("webSdkStore", () => {
+  const userStore = useUserStore();
+
   const ws = ref(null);
   const isConnected = ref(false);
   const typingUser = ref(null);
   const incomingCall = ref(null);
+  const activeCall = ref(null);
+  const localStream = ref(null);
+  const remoteStream = ref(null);
+  const isVideoCall = ref(false);
+  const isCameraEnabled = ref(false);
 
   let typingTimer = null;
 
   const connect = (userId) => {
     if (ws.value && [0, 1].includes(ws.value.readyState)) return;
-
-    const userStore = useUserStore();
 
     ws.value = createWebSocket(userId);
 
@@ -23,7 +33,7 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
       isConnected.value = true;
     };
 
-    ws.value.onmessage = ({ data }) => {
+    ws.value.onmessage = async ({ data }) => {
       const event = JSON.parse(data);
 
       switch (event.type) {
@@ -58,18 +68,70 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
 
         case "call-offer": {
           const { from, offer, isVideo } = event.data || {};
-          console.log(event.data, "offer");
-          if (!from || !offer) return;
 
-          // 🔥 reject if already busy
-          if (incomingCall.value) {
-            send({
-              type: "call-end",
-              data: { to: from },
+          console.log("CALL OFFER:", event.data);
+
+          if (!from || !offer) return;
+          // --------------------------------
+          // RENEGOTIATION
+          // --------------------------------
+          if (activeCall.value) {
+            const answer = await handleRenegotiation(offer, (stream) => {
+              localStream.value = stream;
+              const vt = stream?.getVideoTracks?.()?.[0];
+              if (vt) {
+                isVideoCall.value = true;
+                isCameraEnabled.value = vt.enabled;
+              }
             });
+
+            if (answer) {
+              sendCallAnswer(from, answer);
+            }
+
             return;
           }
-          incomingCall.value = { from, offer, isVideo };
+
+          // ---------------------------------
+          // ALREADY RINGING
+          // ---------------------------------
+          if (incomingCall.value) {
+            send({
+              type: "call-busy",
+              data: { to: from },
+            });
+
+            return;
+          }
+
+          // ---------------------------------
+          // ALREADY IN ACTIVE CALL
+          // ---------------------------------
+          const alreadyInCall =
+            activeCall.value &&
+            ["calling", "ringing", "connecting", "connected"].includes(
+              activeCall.value.status,
+            );
+
+          if (alreadyInCall) {
+            send({
+              type: "call-busy",
+              data: { to: from },
+            });
+            endCallService();
+            return;
+          }
+
+          // ---------------------------------
+          // SAVE INCOMING CALL
+          // ---------------------------------
+          incomingCall.value = {
+            from,
+            offer,
+            isVideo,
+            name: userStore.getFriend(from)?.user.username,
+          };
+
           break;
         }
 
@@ -83,10 +145,14 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
 
         case "call-end":
           incomingCall.value = null;
+          activeCall.value = null;
+          localStream.value = null;
+          remoteStream.value = null;
+          isVideoCall.value = false;
+          isCameraEnabled.value = false;
 
-          window.dispatchEvent(
-            new CustomEvent("call-end", { detail: event.data }),
-          );
+          endCallService();
+
           break;
       }
     };
@@ -172,8 +238,13 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
 
   return {
     isConnected,
+    isVideoCall,
+    isCameraEnabled,
     typingUser,
     incomingCall,
+    activeCall,
+    localStream,
+    remoteStream,
     connect,
     send,
     sendTyping,

@@ -35,15 +35,17 @@ const webSdkStore = useWebSdkStore();
 
 const call = computed(() => webSdkStore.incomingCall);
 
-const callerName = computed(() => "User"); // 🔥 replace with real lookup
-const callerInitial = computed(() => callerName.value[0]);
+const callerName = computed(() => call.value?.name);
+const callerInitial = computed(() =>
+  callerName.value?.charAt(0)?.toUpperCase() ?? "?",
+);
 
 let audio = new Audio("/ringtone.mp3");
 
 watch(call, (val) => {
   if (val) {
     audio.loop = true;
-    audio.play();
+    audio.play().catch(() => {});
   } else {
     audio.pause();
     audio.currentTime = 0;
@@ -53,24 +55,51 @@ watch(call, (val) => {
 const acceptCallHandler = async () => {
   if (!call.value) return;
 
-  const { offer, isVideo } = call.value;
+  const { offer, isVideo, from, name } = call.value;
+
+  webSdkStore.$patch({
+    activeCall: {
+      isVideo,
+      started: true,
+      status: "connecting",
+      userId: from,
+      name,
+    },
+  });
 
   await acceptCall({
     offer,
     isVideo,
+
+    onLocalStream: (stream, mediaState) => {
+      webSdkStore.$patch({
+        localStream: stream,
+
+        isVideoCall: mediaState.isVideoCall,
+        isCameraEnabled: mediaState.isCameraEnabled,
+      });
+    },
+
     onRemoteStream: (stream) => {
-      const audio = document.getElementById("remoteAudio");
-      audio.srcObject = stream;
-      audio.play().catch(() => {});
+      webSdkStore.$patch({
+        remoteStream: stream,
+      });
     },
   });
 
-  webSdkStore.incomingCall = null;
+  webSdkStore.$patch({
+    incomingCall: null,
+  });
 };
 
 const rejectCall = () => {
+  if (!call.value) return;
+
+  const { from } = call.value;
+
+  webSdkStore.endCall(from);
+  webSdkStore.$patch({ incomingCall: null });
   endCall();
-  webSdkStore.endCall(call.value.from);
 };
 </script>
 

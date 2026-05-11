@@ -215,12 +215,32 @@ watch(
 watch([messages, isTyping], scrollBottom, { deep: true, immediate: true });
 
 async function startCallHandler(isVideo) {
+  webSdkStore.$patch({
+    activeCall: {
+      isVideo,
+      started: true,
+      status: "calling",
+      userId: selectedUser.value.user._id,
+      name: selectedUser.value.user.username,
+    },
+  });
+
   await startCall({
     isVideo,
+
+    onLocalStream: (stream, mediaState) => {
+      webSdkStore.$patch({
+        localStream: stream,
+
+        isVideoCall: mediaState.isVideoCall,
+        isCameraEnabled: mediaState.isCameraEnabled,
+      });
+    },
+
     onRemoteStream: (stream) => {
-      const audio = document.getElementById("remoteAudio");
-      audio.srcObject = stream;
-      audio.play().catch(() => {});
+      webSdkStore.$patch({
+        remoteStream: stream,
+      });
     },
   });
 }
