@@ -12,11 +12,11 @@
         />
 
         <q-avatar class="header-avatar">
-          {{ selectedUser?.username?.charAt(0).toUpperCase() }}
+          {{ selectedUser?.user?.username?.charAt(0).toUpperCase() }}
         </q-avatar>
 
         <div class="user-info">
-          <div class="username">{{ selectedUser?.username }}</div>
+          <div class="username">{{ selectedUser?.user.username }}</div>
           <div class="status">
             {{ selectedUser?.isOnline ? "Online" : "Last seen recently" }}
           </div>

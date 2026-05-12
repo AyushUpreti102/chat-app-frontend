@@ -76,6 +76,11 @@ export function createPeerConnection(onRemoteStream) {
       {
         urls: "stun:stun.l.google.com:19302",
       },
+      {
+        urls: "turn:free.expressturn.com:3478",
+        username: "000000002093968959",
+        credential: "twFLLFjmTEsTcOmVo1EmZ8z5WdU=",
+      },
     ],
   });
 
@@ -165,6 +170,23 @@ function addLocalTracks(currentPc) {
 }
 
 // -----------------------------------
+// Signals
+// -----------------------------------
+const attachSignalsListeners = (pc) => {
+  pc.oniceconnectionstatechange = () => {
+    console.log("ICE CONNECTION STATE:", pc.iceConnectionState);
+  };
+
+  pc.onicegatheringstatechange = () => {
+    console.log("ICE GATHERING STATE:", pc.iceGatheringState);
+  };
+
+  pc.onsignalingstatechange = () => {
+    console.log("SIGNALING STATE:", pc.signalingState);
+  };
+};
+
+// -----------------------------------
 // START CALL
 // -----------------------------------
 export async function startCall({ isVideo, onRemoteStream, onLocalStream }) {
@@ -175,6 +197,8 @@ export async function startCall({ isVideo, onRemoteStream, onLocalStream }) {
   await createLocalStream(isVideo);
 
   if (currentPc !== pc) return;
+
+  attachSignalsListeners(currentPc);
 
   onLocalStream?.(localStream, {
     isVideoCall: isVideo,
