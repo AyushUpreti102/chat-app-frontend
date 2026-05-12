@@ -54,6 +54,4 @@ export const logout = async () => {
   } catch (e) {
     console.error("Logout error", e);
   }
-
-  window.location.href = "/login";
 };

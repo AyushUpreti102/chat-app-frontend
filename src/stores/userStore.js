@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { getChatList } from "src/services/user";
 import { getMessages, markAsRead } from "src/services/chat";
+import { notify } from "src/utils/notify";
 
 export const useUserStore = defineStore("userStore", () => {
   const user = ref(null);
@@ -113,8 +114,11 @@ export const useUserStore = defineStore("userStore", () => {
     if (String(msg.sender) === String(currentUserId.value)) return;
 
     const senderId = String(msg.sender);
-    const isCurrent = String(currentChatUser.value?.user._id) === senderId;
+    const from = getFriend(senderId);
 
+    notify(from.user.username, msg.text);
+
+    const isCurrent = String(currentChatUser.value?.user._id) === senderId;
     if (isCurrent) {
       currentChatMessages.value.push({
         _id: msg._id,

@@ -84,9 +84,11 @@
 import { computed, ref } from "vue";
 import { login, register } from "../services/auth";
 import { useRoute, useRouter } from "vue-router";
+import { useToast } from "src/composables/useToast";
 
 const router = useRouter();
 const route = useRoute();
+const { toastSuccess } = useToast();
 
 const username = ref("");
 const email = ref("");
@@ -107,9 +109,11 @@ async function handleSubmit() {
     if (isLogin.value) {
       const emailOrUsername = username.value || email.value;
       await login(emailOrUsername, password.value);
+      toastSuccess("Signed in successfully");
       router.push({ name: "chat" });
     } else {
       await register(username.value, email.value, password.value);
+      toastSuccess("Account created. You can log in now.");
       router.push({ name: "login" });
     }
   } catch (err) {

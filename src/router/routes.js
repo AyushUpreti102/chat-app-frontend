@@ -27,6 +27,18 @@ const routes = [
         path: "/signup",
         component: () => import("pages/AuthenticationPage.vue"),
       },
+      {
+        name: "search",
+        path: "/search",
+        component: () => import("pages/SearchPage.vue"),
+        meta: { requiresAuth: true },
+      },
+      {
+        name: "profile",
+        path: "/profile",
+        component: () => import("pages/ProfilePage.vue"),
+        meta: { requiresAuth: true },
+      },
     ],
   },
 
