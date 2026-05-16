@@ -24,6 +24,27 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
 
   let typingTimer = null;
 
+  const resetCallState = () => {
+    incomingCall.value = null;
+    activeCall.value = null;
+    localStream.value = null;
+    remoteStream.value = null;
+    isVideoCall.value = false;
+    isCameraEnabled.value = false;
+    endCallService();
+  };
+
+  const hangUp = (peerId) => {
+    if (peerId) {
+      send({
+        type: "call-end",
+        data: { to: peerId },
+      });
+    }
+
+    resetCallState();
+  };
+
   const connect = (userId) => {
     if (ws.value && [0, 1].includes(ws.value.readyState)) return;
 
@@ -118,7 +139,7 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
               type: "call-busy",
               data: { to: from },
             });
-            endCallService();
+            resetCallState();
             return;
           }
 
@@ -144,15 +165,7 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
           break;
 
         case "call-end":
-          incomingCall.value = null;
-          activeCall.value = null;
-          localStream.value = null;
-          remoteStream.value = null;
-          isVideoCall.value = false;
-          isCameraEnabled.value = false;
-
-          endCallService();
-
+          resetCallState();
           break;
       }
     };
@@ -224,13 +237,6 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
     });
   };
 
-  const endCall = (to) => {
-    send({
-      type: "call-end",
-      data: { to },
-    });
-  };
-
   const close = () => {
     ws.value?.close();
     ws.value = null;
@@ -251,7 +257,8 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
     sendCallOffer,
     sendCallAnswer,
     sendIceCandidate,
-    endCall,
+    hangUp,
+    resetCallState,
     close,
   };
 });

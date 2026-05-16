@@ -36,6 +36,7 @@ import ActiveCall from "src/components/ActiveCall.vue";
 import { useUserStore } from "src/stores/userStore";
 import { useWebSdkStore } from "src/stores/webSdkStore";
 import { useRoute } from "vue-router";
+import { registerSignaling } from "src/utils/webRtc";
 
 const route = useRoute();
 
@@ -51,6 +52,24 @@ onMounted(async () => {
     await userStore.openConversation(route.params.userId);
   }
   webSdkStore.connect(userStore.currentUserId);
+
+  registerSignaling({
+    sendIceCandidate: (candidate) => {
+      const to =
+        webSdkStore.activeCall?.userId ?? webSdkStore.incomingCall?.from;
+      if (to) webSdkStore.sendIceCandidate(to, candidate);
+    },
+    sendOffer: (offer, isVideo) => {
+      const to = webSdkStore.activeCall?.userId;
+      if (to) webSdkStore.sendCallOffer(to, offer, isVideo);
+    },
+    sendAnswer: (answer) => {
+      const to =
+        webSdkStore.incomingCall?.from ?? webSdkStore.activeCall?.userId;
+      if (to) webSdkStore.sendCallAnswer(to, answer);
+    },
+  });
+
   isSetupInProgress.value = false;
 });
 </script>

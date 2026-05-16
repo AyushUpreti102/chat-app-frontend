@@ -171,14 +171,13 @@ import {
   nextTick,
   watch,
   onBeforeUnmount,
-  onMounted,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "src/stores/userStore";
 import { useWebSdkStore } from "src/stores/webSdkStore";
 import { uploadMultipleFiles } from "src/services/chat";
 import MessageBubble from "./MessageBubble.vue";
-import { registerSignaling, startCall } from "src/utils/webRtc";
+import { startCall } from "src/utils/webRtc";
 
 let scrollTimeout;
 
@@ -387,20 +386,6 @@ function back() {
   userStore.clearConversation();
   router.push({ name: "chat" });
 }
-
-onMounted(() => {
-  registerSignaling({
-    sendIceCandidate: (candidate) => {
-      webSdkStore.sendIceCandidate(selectedUser.value.user._id, candidate);
-    },
-    sendOffer: (offer, isVideo) => {
-      webSdkStore.sendCallOffer(selectedUser.value.user._id, offer, isVideo);
-    },
-    sendAnswer: (answer) => {
-      webSdkStore.sendCallAnswer(selectedUser.value.user._id, answer);
-    },
-  });
-});
 
 onBeforeUnmount(() => {
   selectedFiles.value.forEach((file) => {

@@ -93,12 +93,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 
-import {
-  toggleMic,
-  toggleVideo,
-  switchToVideo,
-  endCall,
-} from "src/utils/webRtc";
+import { toggleMic, toggleVideo, switchToVideo } from "src/utils/webRtc";
 
 import { useWebSdkStore } from "src/stores/webSdkStore";
 
@@ -140,9 +135,16 @@ watch(
 watch(
   remoteStream,
   async (stream) => {
-    if (!stream) return;
-
     await nextTick();
+
+    if (!stream) {
+      hasRemoteVideo.value = false;
+
+      if (remoteVideo.value) remoteVideo.value.srcObject = null;
+      if (remoteAudio.value) remoteAudio.value.srcObject = null;
+
+      return;
+    }
 
     hasRemoteVideo.value = stream.getVideoTracks().length > 0;
 
@@ -202,18 +204,21 @@ async function switchVideoHandler() {
   videoEnabled.value = true;
 }
 
+function detachMediaElements() {
+  if (localVideo.value) localVideo.value.srcObject = null;
+  if (remoteVideo.value) remoteVideo.value.srcObject = null;
+  if (remoteAudio.value) remoteAudio.value.srcObject = null;
+
+  hasLocalVideo.value = false;
+  hasRemoteVideo.value = false;
+  micEnabled.value = true;
+}
+
 function endCallHandler() {
-  if (webSdkStore.activeCall?.userId) {
-    webSdkStore.endCall(webSdkStore.activeCall.userId);
-  }
+  const peerId = webSdkStore.activeCall?.userId;
 
-  webSdkStore.$patch({
-    activeCall: null,
-    localStream: null,
-    remoteStream: null,
-  });
-
-  endCall();
+  webSdkStore.hangUp(peerId);
+  detachMediaElements();
 }
 
 function handleState(event) {
@@ -234,6 +239,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("webrtc-state", handleState);
+  detachMediaElements();
 });
 </script>
 

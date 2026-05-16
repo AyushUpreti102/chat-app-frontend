@@ -26,16 +26,37 @@ export function getPeerConnection() {
 // -----------------------------------
 // CLEANUP
 // -----------------------------------
+function stopMediaStream(stream) {
+  stream?.getTracks().forEach((track) => {
+    try {
+      track.stop();
+    } catch {
+      //
+    }
+  });
+}
+
 export function cleanup() {
   try {
     if (pc) {
       pc.ontrack = null;
       pc.onicecandidate = null;
       pc.onconnectionstatechange = null;
+      pc.oniceconnectionstatechange = null;
+      pc.onicegatheringstatechange = null;
+      pc.onsignalingstatechange = null;
 
       pc.getSenders().forEach((sender) => {
         try {
           sender.track?.stop();
+        } catch {
+          //
+        }
+      });
+
+      pc.getReceivers().forEach((receiver) => {
+        try {
+          receiver.track?.stop();
         } catch {
           //
         }
@@ -47,15 +68,8 @@ export function cleanup() {
     console.error("cleanup error:", err);
   }
 
-  if (localStream) {
-    localStream.getTracks().forEach((track) => {
-      try {
-        track.stop();
-      } catch {
-        //
-      }
-    });
-  }
+  stopMediaStream(localStream);
+  stopMediaStream(remoteStream);
 
   pc = null;
   localStream = null;
@@ -73,9 +87,7 @@ export function createPeerConnection(onRemoteStream) {
 
   const currentPc = new RTCPeerConnection({
     iceServers: [
-      {
-        urls: "stun:stun.l.google.com:19302",
-      },
+      { urls: "stun:stun.l.google.com:19302" },
       {
         urls: "turn:free.expressturn.com:3478",
         username: "000000002093968959",
@@ -216,7 +228,8 @@ export async function startCall({ isVideo, onRemoteStream, onLocalStream }) {
 
   await currentPc.setLocalDescription(offer);
 
-  sendOfferFn?.(offer, isVideo);
+  // Trickle ICE: send SDP immediately; candidates follow via onicecandidate
+  sendOfferFn?.(currentPc.localDescription, isVideo);
 }
 
 // -----------------------------------
@@ -255,7 +268,7 @@ export async function acceptCall({
 
   await currentPc.setLocalDescription(answer);
 
-  sendAnswerFn?.(answer);
+  sendAnswerFn?.(currentPc.localDescription);
 }
 
 // -----------------------------------
@@ -351,7 +364,7 @@ export async function handleRenegotiation(offer, onLocalStream) {
 
     await currentPc.setLocalDescription(answer);
 
-    return answer;
+    return currentPc.localDescription;
   } catch (err) {
     console.error("Renegotiation error:", err);
 
@@ -365,7 +378,9 @@ export async function handleRenegotiation(offer, onLocalStream) {
 export async function handleIceCandidate(candidate) {
   const currentPc = pc;
 
-  if (!currentPc || !isRemoteDescSet) {
+  if (!currentPc || !candidate?.candidate) return;
+
+  if (!isRemoteDescSet) {
     iceQueue.push(candidate);
     return;
   }
@@ -480,7 +495,7 @@ export async function switchToVideo(onLocalStream, onVideoStateChange) {
 
     await currentPc.setLocalDescription(offer);
 
-    sendOfferFn?.(offer, true);
+    sendOfferFn?.(currentPc.localDescription, true);
   } catch (err) {
     console.error("switchToVideo error:", err);
   }

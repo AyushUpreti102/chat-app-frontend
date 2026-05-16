@@ -1,10 +1,6 @@
 import axios from "axios";
 
-const isProd = import.meta.env.VITE_NODE_ENV === "PROD";
-
-const baseUrl = isProd
-  ? import.meta.env.VITE_API_URL_PROD
-  : import.meta.env.VITE_API_URL_DEV;
+const baseUrl = import.meta.env.VITE_API_URL_PROD || "http://localhost:3000";
 
 const axiosInstance = axios.create({
   baseURL: `${baseUrl}/api`,

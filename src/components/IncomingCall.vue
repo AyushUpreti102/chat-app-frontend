@@ -29,7 +29,7 @@
 <script setup>
 import { computed, watch } from "vue";
 import { useWebSdkStore } from "src/stores/webSdkStore";
-import { acceptCall, endCall } from "src/utils/webRtc";
+import { acceptCall } from "src/utils/webRtc";
 
 const webSdkStore = useWebSdkStore();
 
@@ -95,11 +95,7 @@ const acceptCallHandler = async () => {
 const rejectCall = () => {
   if (!call.value) return;
 
-  const { from } = call.value;
-
-  webSdkStore.endCall(from);
-  webSdkStore.$patch({ incomingCall: null });
-  endCall();
+  webSdkStore.hangUp(call.value.from);
 };
 </script>
 
