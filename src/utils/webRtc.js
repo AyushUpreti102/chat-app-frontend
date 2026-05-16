@@ -58,7 +58,7 @@ function stopMediaStream(stream) {
   });
 }
 
-export function cleanup() {
+export function cleanup({ clearIceQueue = true } = {}) {
   try {
     if (pc) {
       pc.ontrack = null;
@@ -97,7 +97,9 @@ export function cleanup() {
   localStream = null;
   remoteStream = null;
 
-  iceQueue = [];
+  if (clearIceQueue) {
+    iceQueue = [];
+  }
   isRemoteDescSet = false;
 }
 
@@ -110,7 +112,11 @@ export function createPeerConnection(onRemoteStream) {
   const currentPc = new RTCPeerConnection({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
+      {
+        urls: "turn:free.expressturn.com:3478",
+        username: "000000002093968959",
+        credential: "twFLLFjmTEsTcOmVo1EmZ8z5WdU=",
+      },
     ],
     iceCandidatePoolSize: 4,
   });
@@ -267,7 +273,8 @@ export async function acceptCall({
   onRemoteStream,
   onLocalStream,
 }) {
-  cleanup();
+  // Keep ICE candidates that arrived while the incoming call was ringing.
+  cleanup({ clearIceQueue: false });
 
   const currentPc = createPeerConnection(onRemoteStream);
 
@@ -427,7 +434,12 @@ export async function handleIceCandidate(candidate) {
 
   const init = normalizeIceCandidateInit(candidate);
 
-  if (!currentPc || !init?.candidate) return;
+  if (!init?.candidate) return;
+
+  if (!currentPc) {
+    iceQueue.push(init);
+    return;
+  }
 
   if (!isRemoteDescSet) {
     iceQueue.push(init);
