@@ -214,12 +214,16 @@ watch(
 watch([messages, isTyping], scrollBottom, { deep: true, immediate: true });
 
 async function startCallHandler(isVideo) {
+  const peerId = selectedUser.value.user._id;
+
+  webSdkStore.setCallPeer(peerId);
+
   webSdkStore.$patch({
     activeCall: {
       isVideo,
       started: true,
       status: "calling",
-      userId: selectedUser.value.user._id,
+      userId: peerId,
       name: selectedUser.value.user.username,
     },
   });
@@ -237,9 +241,8 @@ async function startCallHandler(isVideo) {
     },
 
     onRemoteStream: (stream) => {
-      webSdkStore.$patch({
-        remoteStream: stream,
-      });
+      webSdkStore.$patch({ remoteStream: stream });
+      webSdkStore.markCallConnected();
     },
   });
 }

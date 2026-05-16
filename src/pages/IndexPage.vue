@@ -36,7 +36,7 @@ import ActiveCall from "src/components/ActiveCall.vue";
 import { useUserStore } from "src/stores/userStore";
 import { useWebSdkStore } from "src/stores/webSdkStore";
 import { useRoute } from "vue-router";
-import { registerSignaling } from "src/utils/webRtc";
+import { registerSignaling, serializeIceCandidate } from "src/utils/webRtc";
 
 const route = useRoute();
 
@@ -55,18 +55,19 @@ onMounted(async () => {
 
   registerSignaling({
     sendIceCandidate: (candidate) => {
-      const to =
-        webSdkStore.activeCall?.userId ?? webSdkStore.incomingCall?.from;
-      if (to) webSdkStore.sendIceCandidate(to, candidate);
+      const peerId = webSdkStore.callPeerId;
+
+      if (!peerId) return;
+
+      webSdkStore.sendIceCandidate(
+        peerId,
+        serializeIceCandidate(candidate),
+      );
     },
     sendOffer: (offer, isVideo) => {
-      const to = webSdkStore.activeCall?.userId;
-      if (to) webSdkStore.sendCallOffer(to, offer, isVideo);
-    },
-    sendAnswer: (answer) => {
-      const to =
-        webSdkStore.incomingCall?.from ?? webSdkStore.activeCall?.userId;
-      if (to) webSdkStore.sendCallAnswer(to, answer);
+      const peerId = webSdkStore.callPeerId;
+
+      if (peerId) webSdkStore.sendCallOffer(peerId, offer, isVideo);
     },
   });
 

@@ -57,6 +57,8 @@ const acceptCallHandler = async () => {
 
   const { offer, isVideo, from, name } = call.value;
 
+  webSdkStore.setCallPeer(from);
+
   webSdkStore.$patch({
     activeCall: {
       isVideo,
@@ -67,7 +69,7 @@ const acceptCallHandler = async () => {
     },
   });
 
-  await acceptCall({
+  const answer = await acceptCall({
     offer,
     isVideo,
 
@@ -81,11 +83,14 @@ const acceptCallHandler = async () => {
     },
 
     onRemoteStream: (stream) => {
-      webSdkStore.$patch({
-        remoteStream: stream,
-      });
+      webSdkStore.$patch({ remoteStream: stream });
+      webSdkStore.markCallConnected();
     },
   });
+
+  if (answer) {
+    webSdkStore.sendCallAnswer(from, answer);
+  }
 
   webSdkStore.$patch({
     incomingCall: null,

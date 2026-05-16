@@ -8,15 +8,37 @@ let isRemoteDescSet = false;
 
 let sendIceCandidateFn = null;
 let sendOfferFn = null;
-let sendAnswerFn = null;
 
 // -----------------------------------
 // SIGNALING
 // -----------------------------------
-export function registerSignaling({ sendIceCandidate, sendOffer, sendAnswer }) {
+export function registerSignaling({ sendIceCandidate, sendOffer }) {
   sendIceCandidateFn = sendIceCandidate;
   sendOfferFn = sendOffer;
-  sendAnswerFn = sendAnswer;
+}
+
+export function serializeIceCandidate(candidate) {
+  if (!candidate) return null;
+
+  if (typeof candidate.toJSON === "function") {
+    return candidate.toJSON();
+  }
+
+  return {
+    candidate: candidate.candidate,
+    sdpMid: candidate.sdpMid,
+    sdpMLineIndex: candidate.sdpMLineIndex,
+    usernameFragment: candidate.usernameFragment,
+  };
+}
+
+export function toSessionDescription(desc) {
+  if (!desc) return null;
+
+  return {
+    type: desc.type,
+    sdp: desc.sdp,
+  };
 }
 
 export function getPeerConnection() {
@@ -88,12 +110,9 @@ export function createPeerConnection(onRemoteStream) {
   const currentPc = new RTCPeerConnection({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      {
-        urls: "turn:free.expressturn.com:3478",
-        username: "000000002093968959",
-        credential: "twFLLFjmTEsTcOmVo1EmZ8z5WdU=",
-      },
+      { urls: "stun:stun1.l.google.com:19302" },
     ],
+    iceCandidatePoolSize: 4,
   });
 
   pc = currentPc;
@@ -149,6 +168,32 @@ export function createPeerConnection(onRemoteStream) {
     );
   };
 
+  currentPc.oniceconnectionstatechange = () => {
+    if (currentPc !== pc) return;
+
+    const iceState = currentPc.iceConnectionState;
+
+    console.log("ICE CONNECTION:", iceState);
+
+    window.dispatchEvent(
+      new CustomEvent("webrtc-ice-state", {
+        detail: iceState,
+      }),
+    );
+  };
+
+  currentPc.onicegatheringstatechange = () => {
+    if (currentPc !== pc) return;
+
+    console.log("ICE GATHERING:", currentPc.iceGatheringState);
+  };
+
+  currentPc.onsignalingstatechange = () => {
+    if (currentPc !== pc) return;
+
+    console.log("SIGNALING:", currentPc.signalingState);
+  };
+
   return currentPc;
 }
 
@@ -182,23 +227,6 @@ function addLocalTracks(currentPc) {
 }
 
 // -----------------------------------
-// Signals
-// -----------------------------------
-const attachSignalsListeners = (pc) => {
-  pc.oniceconnectionstatechange = () => {
-    console.log("ICE CONNECTION STATE:", pc.iceConnectionState);
-  };
-
-  pc.onicegatheringstatechange = () => {
-    console.log("ICE GATHERING STATE:", pc.iceGatheringState);
-  };
-
-  pc.onsignalingstatechange = () => {
-    console.log("SIGNALING STATE:", pc.signalingState);
-  };
-};
-
-// -----------------------------------
 // START CALL
 // -----------------------------------
 export async function startCall({ isVideo, onRemoteStream, onLocalStream }) {
@@ -209,8 +237,6 @@ export async function startCall({ isVideo, onRemoteStream, onLocalStream }) {
   await createLocalStream(isVideo);
 
   if (currentPc !== pc) return;
-
-  attachSignalsListeners(currentPc);
 
   onLocalStream?.(localStream, {
     isVideoCall: isVideo,
@@ -229,7 +255,7 @@ export async function startCall({ isVideo, onRemoteStream, onLocalStream }) {
   await currentPc.setLocalDescription(offer);
 
   // Trickle ICE: send SDP immediately; candidates follow via onicecandidate
-  sendOfferFn?.(currentPc.localDescription, isVideo);
+  sendOfferFn?.(toSessionDescription(currentPc.localDescription), isVideo);
 }
 
 // -----------------------------------
@@ -247,7 +273,7 @@ export async function acceptCall({
 
   await createLocalStream(isVideo);
 
-  if (currentPc !== pc) return;
+  if (currentPc !== pc) return null;
 
   onLocalStream?.(localStream, {
     isVideoCall: isVideo,
@@ -264,11 +290,15 @@ export async function acceptCall({
 
   const answer = await currentPc.createAnswer();
 
-  if (currentPc !== pc) return;
+  if (currentPc !== pc) return null;
 
   await currentPc.setLocalDescription(answer);
 
-  sendAnswerFn?.(currentPc.localDescription);
+  await flushIceQueue(currentPc);
+
+  scheduleIceQueueFlush(currentPc);
+
+  return toSessionDescription(currentPc.localDescription);
 }
 
 // -----------------------------------
@@ -291,6 +321,8 @@ export async function handleAnswer(answer) {
     isRemoteDescSet = true;
 
     await flushIceQueue(currentPc);
+
+    scheduleIceQueueFlush(currentPc);
 
     console.log("REMOTE ANSWER APPLIED");
   } catch (err) {
@@ -364,7 +396,7 @@ export async function handleRenegotiation(offer, onLocalStream) {
 
     await currentPc.setLocalDescription(answer);
 
-    return currentPc.localDescription;
+    return toSessionDescription(currentPc.localDescription);
   } catch (err) {
     console.error("Renegotiation error:", err);
 
@@ -375,33 +407,64 @@ export async function handleRenegotiation(offer, onLocalStream) {
 // -----------------------------------
 // ICE
 // -----------------------------------
+function normalizeIceCandidateInit(candidate) {
+  if (!candidate) return null;
+
+  if (typeof candidate === "string") {
+    return { candidate, sdpMid: "0", sdpMLineIndex: 0 };
+  }
+
+  return {
+    candidate: candidate.candidate,
+    sdpMid: candidate.sdpMid ?? null,
+    sdpMLineIndex: candidate.sdpMLineIndex ?? null,
+    usernameFragment: candidate.usernameFragment,
+  };
+}
+
 export async function handleIceCandidate(candidate) {
   const currentPc = pc;
 
-  if (!currentPc || !candidate?.candidate) return;
+  const init = normalizeIceCandidateInit(candidate);
+
+  if (!currentPc || !init?.candidate) return;
 
   if (!isRemoteDescSet) {
-    iceQueue.push(candidate);
+    iceQueue.push(init);
     return;
   }
 
   try {
-    await currentPc.addIceCandidate(new RTCIceCandidate(candidate));
+    await currentPc.addIceCandidate(new RTCIceCandidate(init));
   } catch (err) {
     console.error("ICE ERROR:", err);
+    iceQueue.push(init);
   }
 }
 
 async function flushIceQueue(currentPc) {
-  for (const candidate of iceQueue) {
+  if (!currentPc || currentPc !== pc) return;
+
+  const pending = iceQueue.splice(0, iceQueue.length);
+
+  for (const init of pending) {
     try {
-      await currentPc.addIceCandidate(new RTCIceCandidate(candidate));
+      await currentPc.addIceCandidate(new RTCIceCandidate(init));
     } catch (err) {
-      console.error(err);
+      console.error("ICE flush error:", err);
+      iceQueue.push(init);
     }
   }
+}
 
-  iceQueue = [];
+function scheduleIceQueueFlush(currentPc) {
+  setTimeout(() => {
+    if (pc === currentPc) flushIceQueue(currentPc);
+  }, 500);
+
+  setTimeout(() => {
+    if (pc === currentPc) flushIceQueue(currentPc);
+  }, 1500);
 }
 
 // -----------------------------------
@@ -495,7 +558,7 @@ export async function switchToVideo(onLocalStream, onVideoStateChange) {
 
     await currentPc.setLocalDescription(offer);
 
-    sendOfferFn?.(currentPc.localDescription, true);
+    sendOfferFn?.(toSessionDescription(currentPc.localDescription), true);
   } catch (err) {
     console.error("switchToVideo error:", err);
   }

@@ -221,24 +221,42 @@ function endCallHandler() {
   detachMediaElements();
 }
 
+function markConnected() {
+  webSdkStore.markCallConnected();
+}
+
 function handleState(event) {
   const state = event.detail;
 
   if (state === "connected") {
-    webSdkStore.activeCall.status = "connected";
+    markConnected();
   }
 
-  if (state === "failed" || state === "closed" || state === "disconnected") {
+  if (state === "failed" || state === "closed") {
+    endCallHandler();
+  }
+}
+
+function handleIceState(event) {
+  const state = event.detail;
+
+  if (state === "connected" || state === "completed") {
+    markConnected();
+  }
+
+  if (state === "failed") {
     endCallHandler();
   }
 }
 
 onMounted(() => {
   window.addEventListener("webrtc-state", handleState);
+  window.addEventListener("webrtc-ice-state", handleIceState);
 });
 
 onUnmounted(() => {
   window.removeEventListener("webrtc-state", handleState);
+  window.removeEventListener("webrtc-ice-state", handleIceState);
   detachMediaElements();
 });
 </script>

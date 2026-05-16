@@ -21,8 +21,13 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
   const remoteStream = ref(null);
   const isVideoCall = ref(false);
   const isCameraEnabled = ref(false);
+  const callPeerId = ref(null);
 
   let typingTimer = null;
+
+  const setCallPeer = (peerId) => {
+    callPeerId.value = peerId ? String(peerId) : null;
+  };
 
   const resetCallState = () => {
     incomingCall.value = null;
@@ -31,7 +36,17 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
     remoteStream.value = null;
     isVideoCall.value = false;
     isCameraEnabled.value = false;
+    callPeerId.value = null;
     endCallService();
+  };
+
+  const markCallConnected = () => {
+    if (!activeCall.value) return;
+
+    activeCall.value = {
+      ...activeCall.value,
+      status: "connected",
+    };
   };
 
   const hangUp = (peerId) => {
@@ -146,6 +161,8 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
           // ---------------------------------
           // SAVE INCOMING CALL
           // ---------------------------------
+          setCallPeer(from);
+
           incomingCall.value = {
             from,
             offer,
@@ -156,13 +173,29 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
           break;
         }
 
-        case "call-answer":
-          handleAnswer(event.data.answer);
-          break;
+        case "call-answer": {
+          const answer = event.data?.answer ?? event.answer;
 
-        case "ice-candidate":
-          handleIceCandidate(event.data.candidate);
+          if (!answer) break;
+
+          await handleAnswer(answer);
+
+          if (activeCall.value) {
+            activeCall.value = {
+              ...activeCall.value,
+              status: "connecting",
+            };
+          }
+
           break;
+        }
+
+        case "ice-candidate": {
+          const candidate = event.data?.candidate ?? event.candidate;
+
+          handleIceCandidate(candidate);
+          break;
+        }
 
         case "call-end":
           resetCallState();
@@ -217,23 +250,29 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
   };
 
   const sendCallOffer = (to, offer, isVideo) => {
+    if (!to || !offer) return;
+
     send({
       type: "call-offer",
-      data: { to, offer, isVideo },
+      data: { to: String(to), offer, isVideo },
     });
   };
 
   const sendCallAnswer = (to, answer) => {
+    if (!to || !answer) return;
+
     send({
       type: "call-answer",
-      data: { to, answer },
+      data: { to: String(to), answer },
     });
   };
 
   const sendIceCandidate = (to, candidate) => {
+    if (!to || !candidate?.candidate) return;
+
     send({
       type: "ice-candidate",
-      data: { to, candidate },
+      data: { to: String(to), candidate },
     });
   };
 
@@ -257,6 +296,9 @@ export const useWebSdkStore = defineStore("webSdkStore", () => {
     sendCallOffer,
     sendCallAnswer,
     sendIceCandidate,
+    callPeerId,
+    setCallPeer,
+    markCallConnected,
     hangUp,
     resetCallState,
     close,
